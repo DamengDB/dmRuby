@@ -486,10 +486,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           params_enc[i] = argv[i];
           params_enc[i] = rb_str_export_to_enc(params_enc[i], conn_enc);
           set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
-          if(stmt_wrapper->paramdesc[i].sql_type == DSQL_BLOB || stmt_wrapper->paramdesc[i].sql_type == DSQL_BINARY || stmt_wrapper->paramdesc[i].sql_type == DSQL_VARBINARY)
-            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_BINARY, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
-          else
-            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
+          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
           if(!DSQL_SUCCEEDED(rt))
             rb_raise(cdmError, "failed to bind param %d", i);
           break;

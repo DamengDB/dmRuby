@@ -172,6 +172,10 @@ static void rb_dm_result_free_result(dm_result_wrapper * wrapper) {
 /* this is called during GC */
 static void rb_dm_result_free(void *ptr) {
   dm_result_wrapper *wrapper = ptr;
+  if (wrapper->statement != NULL && wrapper->is_prepare == 0) {
+      dpi_free_stmt(wrapper->statement);
+      wrapper->statement = NULL;
+  }
   rb_dm_result_free_result(wrapper);
 
   // If the GC gets to client first it will be nil
@@ -242,6 +246,7 @@ static void* nogvl_stmt_fetch(void *ptr) {
   dm_result_wrapper* wrapper = ptr;
   DPIRETURN rt = DSQL_SUCCESS;
   ulength  row_num;
+  slength  data_get = 0;
   int iparam;
   rt = dpi_fetch(wrapper->statement, &row_num);
   if(rt == DSQL_NO_DATA || row_num == 0)
@@ -260,7 +265,10 @@ static void* nogvl_stmt_fetch(void *ptr) {
         wrapper->result[iparam] = NULL;
         continue;
       }
-      wrapper->result[iparam] = xmalloc(wrapper->length[iparam] + 2);
+      if(wrapper->col_desc[iparam].sql_type == DSQL_CLOB)
+        wrapper->result[iparam] = xmalloc(wrapper->length[iparam] * 4 + 2);
+      else
+        wrapper->result[iparam] = xmalloc(wrapper->length[iparam] + 2);
       if(wrapper->col_desc[iparam].sql_type == DSQL_BLOB)
       {
         rt = dpi_lob_read((dhloblctr)(wrapper->lobs[iparam]), 1, DSQL_C_BINARY,
@@ -269,7 +277,7 @@ static void* nogvl_stmt_fetch(void *ptr) {
       else
       {
          rt = dpi_lob_read((dhloblctr)(wrapper->lobs[iparam]), 1, DSQL_C_NCHAR,
-                                      0, wrapper->result[iparam], wrapper->length[iparam] + 1, NULL);
+                                     0, wrapper->result[iparam], wrapper->length[iparam] * 4 + 1, &data_get);
       }
     }
   }
@@ -361,43 +369,43 @@ static VALUE rb_dm_result_fetch_field_type(VALUE self, unsigned int idx) {
         rb_field_type = rb_sprintf("smallint(%ld)", field.length);
         break;
       case DSQL_INTERVAL_YEAR:         // short int
-        rb_field_type = rb_str_new_cstr("year");
+        rb_field_type = rb_str_new_cstr("interval year");
         break;
       case DSQL_INTERVAL_MONTH:         // short int
-        rb_field_type = rb_str_new_cstr("month");
+        rb_field_type = rb_str_new_cstr("interval month");
         break;
       case DSQL_INTERVAL_DAY:         // short int
-        rb_field_type = rb_str_new_cstr("day");
+        rb_field_type = rb_str_new_cstr("interval day");
         break;
       case DSQL_INTERVAL_HOUR:         // short int
-        rb_field_type = rb_str_new_cstr("hour");
+        rb_field_type = rb_str_new_cstr("interval hour");
         break;
       case DSQL_INTERVAL_MINUTE:         // short int
-        rb_field_type = rb_str_new_cstr("minute");
+        rb_field_type = rb_str_new_cstr("interval minute");
         break;
       case DSQL_INTERVAL_SECOND:         // short int
-        rb_field_type = rb_str_new_cstr("second");
+        rb_field_type = rb_str_new_cstr("interval second");
         break;
       case DSQL_INTERVAL_YEAR_TO_MONTH:         // short int
-        rb_field_type = rb_str_new_cstr("year to month");
+        rb_field_type = rb_str_new_cstr("interval year to month");
         break;
       case DSQL_INTERVAL_DAY_TO_HOUR:         // short int
-        rb_field_type = rb_str_new_cstr("day to hour");
+        rb_field_type = rb_str_new_cstr("interval day to hour");
         break;
       case DSQL_INTERVAL_DAY_TO_MINUTE:         // short int
-        rb_field_type = rb_str_new_cstr("day to minute");
+        rb_field_type = rb_str_new_cstr("interval day to minute");
         break;
       case DSQL_INTERVAL_DAY_TO_SECOND:         // short int
-        rb_field_type = rb_str_new_cstr("day to second");
+        rb_field_type = rb_str_new_cstr("interval day to second");
         break;
       case DSQL_INTERVAL_HOUR_TO_MINUTE:         // short int
-        rb_field_type = rb_str_new_cstr("hour to minute");
+        rb_field_type = rb_str_new_cstr("interval hour to minute");
         break;
       case DSQL_INTERVAL_HOUR_TO_SECOND:         // short int
-        rb_field_type = rb_str_new_cstr("hour to second");
+        rb_field_type = rb_str_new_cstr("interval hour to second");
         break;
       case DSQL_INTERVAL_MINUTE_TO_SECOND:         // short int
-        rb_field_type = rb_str_new_cstr("minute to second");
+        rb_field_type = rb_str_new_cstr("interval minute to second");
         break;
       case DSQL_INT:        // int
         rb_field_type = rb_sprintf("int(%ld)", field.length);
@@ -684,7 +692,7 @@ static VALUE rb_dm_result_fetch_row(VALUE self,const result_each_args *args)
         case DSQL_BLOB:
         case DSQL_VARCHAR:
         default:
-          val = rb_str_new(row[i], fieldLengths[i]);
+          val = rb_str_new(row[i], strlen(row[i]));
           val = dm_set_field_string_encoding(val, default_internal_enc, conn_enc);
           break;
         }

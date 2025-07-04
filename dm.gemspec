@@ -3,11 +3,11 @@
 require_relative "lib/dm/version"
 
 Dm::GEMSPEC = Gem::Specification.new do |s|
-  s.name = 'dm'
+  s.name = 'ruby-dm'
   s.version = Dm::VERSION
-  s.authors = ['lj']
+  s.authors = ['sunbiao']
   s.license = "MIT"
-  s.email = ['liujin@dameng.com']
+  s.email = ['sunbiao@dameng.com']
   s.extensions = ["ext/extconf.rb"]
   s.homepage = 'https://www.dameng.com/'
   s.rdoc_options = ["--charset=UTF-8"]

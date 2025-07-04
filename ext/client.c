@@ -150,14 +150,17 @@ static void *nogvl_get_error(void *ptr) {
 static VALUE rb_raise_dm_error(dm_client_wrapper *wrapper, void* hndl, sdint2 hndl_type) {
   VALUE rb_error_msg;
   VALUE e;
+  const struct dm_enc_name_to_rb_map *dmrb;
   struct nogvl_errors_args err;
+
   err.hndl = hndl;
   err.hndl_type = hndl_type;
 
   rb_thread_call_without_gvl(nogvl_get_error, &err, RUBY_UBF_IO, 0);
   rb_error_msg = rb_str_new2(err.errormsg);
 
-  rb_enc_associate(rb_error_msg, rb_utf8_encoding());
+  dmrb = dm_enc_name_to_rb(wrapper->encode_code);
+  rb_enc_associate(rb_error_msg, rb_enc_find(dmrb->rb_name));
   e = rb_funcall(cdmError, intern_new_with_args, 2,
                  rb_error_msg,
                  UINT2NUM(err.errorCode));
@@ -173,9 +176,6 @@ static void *nogvl_connect(void *ptr) {
   rt = dpi_alloc_con(args->wrapper->env,&args->wrapper->client);
   if(!(DSQL_SUCCEEDED(rt)))
     return (void*)Qfalse;
-  rt = dpi_set_con_attr(args->wrapper->client,DSQL_ATTR_TCNAME_LOWER,(dpointer)1,0);
-  if(!(DSQL_SUCCEEDED(rt)))
-      return (void*)Qfalse;
   rt = dpi_set_con_attr(args->wrapper->client,DSQL_ATTR_LOCAL_CODE,(dpointer)args->wrapper->encode_code,0);
   if(!(DSQL_SUCCEEDED(rt)))
       return (void*)Qfalse;
@@ -393,6 +393,11 @@ static VALUE rb_dm_query(VALUE self, VALUE sql, VALUE options) {
     resultobj = rb_dm_result_to_obj(self, wrapper->encoding, wrapper->stmt, 0 , options);
     wrapper->stmt = NULL;
     return resultobj;
+  }
+  else
+  {
+    dpi_free_stmt(wrapper->stmt);
+    wrapper->stmt = NULL;
   }
 
   /* this will just block until the result is ready */
