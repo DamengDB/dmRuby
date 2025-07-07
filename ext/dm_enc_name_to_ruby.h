@@ -46,7 +46,7 @@ const struct dm_enc_name_to_rb_map* dm_enc_name_to_rb (int code)
       {2, "GBK"},
       {3, "Big5"},
       {4, "ISO-8859-9"},
-      {5, "ECU-JP"},
+      {5, "EUC-JP"},
       {6, "EUC-KR"},
       {7, "KOI8-R"},
       {8, "ISO-8859-1"},
