@@ -441,6 +441,25 @@ static VALUE rb_dm_client_encoding(VALUE self) {
   return wrapper->encoding;
 }
 
+static void *nogvl_ping(void *ptr) {
+  dhcon   client = ptr;
+  sdint4  is_dead = 1;
+
+  dpi_get_con_attr(client, DSQL_ATTR_CONNECTION_DEAD, &is_dead, sizeof(sdint4), NULL);
+
+  return (void *)( is_dead == 0 ? Qtrue : Qfalse);
+}
+
+static VALUE rb_dm_client_ping(VALUE self) {
+  GET_CLIENT(self);
+
+  if (!CONNECTED(wrapper)) {
+    return Qfalse;
+  } else {
+    return (VALUE)rb_thread_call_without_gvl(nogvl_ping, wrapper->client, RUBY_UBF_IO, 0);
+  }
+}
+
 static VALUE set_charset_name(VALUE self, VALUE value) {
   int code;
   DPIRETURN rt;
@@ -490,6 +509,7 @@ void init_dm_client() {
   rb_define_method(cdmClient, "affected_rows", rb_dm_client_affected_rows, 0);
   rb_define_method(cdmClient, "prepare", rb_dm_client_prepare_statement, 1);
   rb_define_method(cdmClient, "encoding", rb_dm_client_encoding, 0);
+  rb_define_method(cdmClient, "ping", rb_dm_client_ping, 0);
 
   rb_define_private_method(cdmClient, "charset_name=", set_charset_name, 1);
   rb_define_private_method(cdmClient, "connect", rb_dm_connect, 3);
