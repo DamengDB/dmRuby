@@ -8,6 +8,10 @@
 
 ## Change Logs
 
+- dmRuby v1.0.2
+
+  1、修改读取blob数据错误的问题。
+
 - dmRuby v1.0.1
 
   1、增加client.ping函数用来判断连接是否存活。

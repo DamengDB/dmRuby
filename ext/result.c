@@ -690,6 +690,13 @@ static VALUE rb_dm_result_fetch_row(VALUE self,const result_each_args *args)
           break;
         }
         case DSQL_BLOB:
+        case DSQL_BINARY:
+        case DSQL_VARBINARY:
+        {
+          val = rb_str_new(row[i],  fieldLengths[i]);
+          val = dm_set_field_string_encoding(val, default_internal_enc, conn_enc);
+          break;
+        }
         case DSQL_VARCHAR:
         default:
           val = rb_str_new(row[i], strlen(row[i]));
