@@ -996,8 +996,14 @@ VALUE rb_dm_result_to_obj(VALUE client, VALUE encoding, dhstmt statement, int fl
   wrapper->is_prepare = flag;
 
   rb_obj_call_init(obj, 0, NULL);
-  rb_ivar_set(obj, intern_query_options, options);
-
+  if(wrapper->is_prepare == 0)
+  {
+    rb_ivar_set(obj, intern_query_options, options);
+  }
+  else
+  {
+     rb_ivar_set(obj,intern_query_options, rb_hash_dup(rb_ivar_get(wrapper->client, intern_query_options)));
+  }
   /* Options that cannot be changed in results.each(...) { |row| }
    * should be processed here. */
 
