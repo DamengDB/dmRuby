@@ -24,13 +24,15 @@ module Dm
       user     = opts[:username] || opts[:user]
       pass     = opts[:password] || opts[:pass]
       server   = opts[:server] || opts[:host]
+      schema   = opts[:schema]
 
       # Correct the data types before passing these values down to the C level
       user = user.to_s unless user.nil?
       pass = pass.to_s unless pass.nil?
       server = server.to_s unless server.nil?
+      schema = schema.to_s unless schema.nil?
       self.charset_name = opts[:encoding] || 1
-      connect user, pass, server
+      connect user, pass, server, schema
     end
 
     def query(sql, options = {})

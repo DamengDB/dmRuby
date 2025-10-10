@@ -49,6 +49,7 @@ struct nogvl_connect_args {
   const char *server;
   const char *user;
   const char *passwd;
+  const char *schema;
 };
 
 /*
@@ -176,6 +177,12 @@ static void *nogvl_connect(void *ptr) {
   rt = dpi_alloc_con(args->wrapper->env,&args->wrapper->client);
   if(!(DSQL_SUCCEEDED(rt)))
     return (void*)Qfalse;
+  if(args->schema != NULL)
+  {
+    rt = dpi_set_con_attr(args->wrapper->client,DSQL_ATTR_CURRENT_SCHEMA,(dpointer)args->schema,(sdint4)strlen(args->schema));
+    if(!(DSQL_SUCCEEDED(rt)))
+        return (void*)Qfalse;
+  }
   rt = dpi_set_con_attr(args->wrapper->client,DSQL_ATTR_LOCAL_CODE,(dpointer)args->wrapper->encode_code,0);
   if(!(DSQL_SUCCEEDED(rt)))
       return (void*)Qfalse;
@@ -235,15 +242,16 @@ static VALUE allocate(VALUE klass) {
   return obj;
 }
 
-static VALUE rb_dm_connect(VALUE self, VALUE user, VALUE pass, VALUE servers) {
+static VALUE rb_dm_connect(VALUE self, VALUE user, VALUE pass, VALUE servers, VALUE schema) {
   struct nogvl_connect_args args;
   time_t start_time, end_time, elapsed_time, connect_timeout;
   VALUE rv;
   GET_CLIENT(self);
 
   args.server     = NIL_P(servers)  ? NULL : StringValueCStr(servers);
-  args.user        = NIL_P(user)     ? NULL : StringValueCStr(user);
-  args.passwd      = NIL_P(pass)     ? NULL : StringValueCStr(pass);
+  args.user       = NIL_P(user)     ? NULL : StringValueCStr(user);
+  args.passwd     = NIL_P(pass)     ? NULL : StringValueCStr(pass);
+  args.schema     = NIL_P(schema)   ? NULL : StringValueCStr(schema);
   args.wrapper    = wrapper;
 
   rv = (VALUE) rb_thread_call_without_gvl(nogvl_connect, &args, RUBY_UBF_IO, 0);
@@ -512,7 +520,7 @@ void init_dm_client() {
   rb_define_method(cdmClient, "ping", rb_dm_client_ping, 0);
 
   rb_define_private_method(cdmClient, "charset_name=", set_charset_name, 1);
-  rb_define_private_method(cdmClient, "connect", rb_dm_connect, 3);
+  rb_define_private_method(cdmClient, "connect", rb_dm_connect, 4);
   rb_define_private_method(cdmClient, "_query", rb_dm_query, 2);
 
   sym_id              = ID2SYM(rb_intern("id"));

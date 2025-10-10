@@ -8,6 +8,14 @@
 
 ## Change Logs
 
+- dmRuby v1.0.4
+
+  1、新增连接参数schema
+
+- dmRuby v1.0.3
+
+  1、修改stmt执行的语句不能输出array类型的result
+
 - dmRuby v1.0.2
 
   1、修改读取blob数据错误的问题。
