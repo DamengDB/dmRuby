@@ -74,11 +74,18 @@ static void *nogvl_stmt_close(void *ptr) {
 void decr_dm_stmt(dm_stmt_wrapper *stmt_wrapper) {
   stmt_wrapper->refcount--;
 
-  if (stmt_wrapper->refcount == 0) {
-    if(stmt_wrapper->paramdesc != NULL)
+  if (stmt_wrapper->refcount == 0) 
+  {
+    if (stmt_wrapper->paramdesc != NULL)
     {
       xfree(stmt_wrapper->paramdesc);
       stmt_wrapper->paramdesc = NULL;
+    }
+
+    if (stmt_wrapper->stmt) 
+    {
+      dpi_free_stmt(stmt_wrapper->stmt);
+      stmt_wrapper->stmt = NULL;
     }
     xfree(stmt_wrapper);
   }
@@ -292,11 +299,13 @@ static void *nogvl_stmt_execute(void *ptr) {
     rt = dpi_rowid_to_char(wrapper->client,lastrowid,sizeof(lastrowid),stmt_wrapper->lastrowid,sizeof(stmt_wrapper->lastrowid),&len);
      if (!DSQL_SUCCEEDED(rt)) {
       return (void*)Qfalse;
-    } 
+    }
+     strncpy(wrapper->lastrowid, stmt_wrapper->lastrowid, 20);
   }
   else
   {
     strncpy(stmt_wrapper->lastrowid, "", 20);
+    strncpy(wrapper->lastrowid, "", 20);
   }
   
   // affected_rows
@@ -308,7 +317,13 @@ static void *nogvl_stmt_execute(void *ptr) {
     rt = dpi_row_count(stmt_wrapper->stmt,&stmt_wrapper->affected_rows);
      if (!DSQL_SUCCEEDED(rt)) {
       return (void*)Qfalse;
-    } 
+    }
+     wrapper->affected_rows = stmt_wrapper->affected_rows;
+  }
+  else
+  {
+    stmt_wrapper->affected_rows = 0;
+    wrapper->affected_rows = 0;
   }      
 
   rt = dpi_number_columns(stmt_wrapper->stmt, &stmt_wrapper->col_num);   
@@ -403,6 +418,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
   VALUE *params_enc = NULL;
   rb_encoding *conn_enc;
   DPIRETURN rt;
+  rb_encoding *enc;
 
   GET_STATEMENT(self);
   GET_CLIENT(stmt_wrapper->client);
@@ -484,11 +500,22 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           break;
         case T_STRING:
           params_enc[i] = argv[i];
-          params_enc[i] = rb_str_export_to_enc(params_enc[i], conn_enc);
-          set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
-          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
-          if(!DSQL_SUCCEEDED(rt))
-            rb_raise(cdmError, "failed to bind param %d", i);
+          enc = rb_enc_get(params_enc[i]);
+          if (enc == rb_ascii8bit_encoding())
+          {
+            set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
+            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_BINARY, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
+            if(!DSQL_SUCCEEDED(rt))
+              rb_raise(cdmError, "failed to bind param %d", i);
+          }
+          else
+          {
+            params_enc[i] = rb_str_export_to_enc(params_enc[i], conn_enc);
+            set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
+            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
+            if(!DSQL_SUCCEEDED(rt))
+              rb_raise(cdmError, "failed to bind param %d", i);
+          }
           break;
         case T_TRUE:
           bind_buffers[i].buffer = xmalloc(sizeof(int));

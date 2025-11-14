@@ -8,13 +8,25 @@
 
 ## Change Logs
 
+- dmRuby v1.0.5
+
+  1、修改读取bit类型结果错误的问题；
+
+  2、修改Dm::Client.affected_rows()返回结果错误的问题；
+
+  3、修改对number类型，查询sum()求和返回结果丢失精度的问题；
+
+  4、修改不手动调用stmt.close，内存持续增长的问题；
+
+  5、修改blob插入二进制数据，数据库查询为空的问题。
+
 - dmRuby v1.0.4
 
-  1、新增连接参数schema
+  1、新增连接参数schema。
 
 - dmRuby v1.0.3
 
-  1、修改stmt执行的语句不能输出array类型的result
+  1、修改stmt执行的语句不能输出array类型的result。
 
 - dmRuby v1.0.2
 

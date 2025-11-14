@@ -563,7 +563,7 @@ static VALUE rb_dm_result_fetch_row(VALUE self,const result_each_args *args)
           if (args->castBool && fieldLengths[i] == 1) {
             val = *row[i] == '1' ? Qtrue : Qfalse;
           }else{
-            val = rb_str_new(row[i], fieldLengths[i]);
+            val = rb_cstr2inum(row[i], 10);
           }
           break;
         case DSQL_TINYINT:       /* TINYINT field */
@@ -577,9 +577,7 @@ static VALUE rb_dm_result_fetch_row(VALUE self,const result_each_args *args)
           val = rb_cstr2inum(row[i], 10);
           break;
         case DSQL_DEC:    /* DECIMAL or NUMERIC field */
-          if (wrapper->col_desc[i].scale == 0) {
-            val = rb_cstr2inum(row[i], 10);
-          } else if (strtod(row[i], NULL) == 0.000000){
+          if (strtod(row[i], NULL) == 0.000000){
             val = rb_funcall(rb_mKernel, intern_BigDecimal, 1, opt_decimal_zero);
           }else{
             val = rb_funcall(rb_mKernel, intern_BigDecimal, 1, rb_str_new(row[i], fieldLengths[i]));
@@ -882,7 +880,6 @@ static VALUE rb_dm_result_each(int argc, VALUE * argv, VALUE self) {
   }
   else
   {
- 
     symbolizeKeys = 0;
     asArray       = 0;
     castBool      = 0;
