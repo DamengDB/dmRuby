@@ -372,10 +372,7 @@ static int my_big2ll(VALUE bignum, sdint8  *ptr)
 
   if (len > sizeof(sdint8)) goto overflow;
   if (RBIGNUM_POSITIVE_P(bignum)) {
-    num = rb_big2ull(bignum);
-    if (num > LLONG_MAX)
-      goto overflow;
-    *ptr = num;
+    goto overflow;
   }
   else {
     if (len == 8 &&
@@ -460,19 +457,11 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
             rb_raise(cdmError, "failed to bind param %d", i);
           break;
         case T_FIXNUM:
-#if SIZEOF_INT < SIZEOF_LONG
-          bind_buffers[i].buffer = xmalloc(sizeof(long long int));
-          *(long*)(bind_buffers[i].buffer) = FIX2LONG(argv[i]);
-          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SBIGINT, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, sizeof(long long int), NULL);
+          bind_buffers[i].buffer = xmalloc(sizeof(sdint8));
+          *(sdint8*)(bind_buffers[i].buffer) =(sdint8)FIX2INT(argv[i]);
+          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SBIGINT, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, sizeof(sdint8), NULL);
           if(!DSQL_SUCCEEDED(rt))
             rb_raise(cdmError, "failed to bind param %d", i);
-#else
-          bind_buffers[i].buffer = xmalloc(sizeof(int));
-          *(long*)(bind_buffers[i].buffer) = FIX2INT(argv[i]);
-          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SLONG, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, sizeof(int), NULL);
-          if(!DSQL_SUCCEEDED(rt))
-            rb_raise(cdmError, "failed to bind param %d", i);
-#endif
           break;
         case T_BIGNUM:
           {
