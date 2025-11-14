@@ -422,7 +422,12 @@ static VALUE rb_dm_query(VALUE self, VALUE sql, VALUE options) {
 static VALUE rb_dm_client_last_id(VALUE self) {
   GET_CLIENT(self);
   REQUIRE_CONNECTED(wrapper);
-  return rb_str_new2(wrapper->lastrowid);
+  rb_encoding *conn_enc;
+  VALUE obj = rb_str_new2(wrapper->lastrowid);
+
+  conn_enc = rb_to_encoding(wrapper->encoding);
+  rb_enc_associate(obj, conn_enc);
+  return obj;
 }
 
 

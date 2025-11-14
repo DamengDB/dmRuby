@@ -620,7 +620,13 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
  */
 static VALUE rb_dm_stmt_last_id(VALUE self) {
   GET_STATEMENT(self);
-  return rb_str_new2(stmt_wrapper->lastrowid);
+  GET_CLIENT(stmt_wrapper->client);
+  rb_encoding *conn_enc;
+  VALUE obj = rb_str_new2(stmt_wrapper->lastrowid);
+
+  conn_enc = rb_to_encoding(wrapper->encoding);
+  rb_enc_associate(obj, conn_enc);
+  return obj;
 }
 
 /* call-seq:
