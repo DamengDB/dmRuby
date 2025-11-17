@@ -172,7 +172,7 @@ static void rb_dm_result_free_result(dm_result_wrapper * wrapper) {
 /* this is called during GC */
 static void rb_dm_result_free(void *ptr) {
   dm_result_wrapper *wrapper = ptr;
-  if (wrapper->statement != NULL && wrapper->is_prepare == 0) {
+  if (wrapper->statement != NULL && wrapper->is_prepare == 0 && wrapper->client != Qnil && wrapper->client_wrapper->closed != 1) {
       dpi_free_stmt(wrapper->statement);
       wrapper->statement = NULL;
   }

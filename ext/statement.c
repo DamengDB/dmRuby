@@ -72,7 +72,6 @@ static void *nogvl_stmt_close(void *ptr) {
 }
 
 void decr_dm_stmt(dm_stmt_wrapper *stmt_wrapper) {
-  GET_CLIENT(stmt_wrapper->client);
   stmt_wrapper->refcount--;
 
   if (stmt_wrapper->refcount == 0) 
@@ -83,10 +82,14 @@ void decr_dm_stmt(dm_stmt_wrapper *stmt_wrapper) {
       stmt_wrapper->paramdesc = NULL;
     }
 
-    if (stmt_wrapper->stmt && stmt_wrapper->client != Qnil && wrapper->closed != 1) 
+    if (stmt_wrapper->stmt && stmt_wrapper->client != Qnil) 
     {
-      dpi_free_stmt(stmt_wrapper->stmt);
-      stmt_wrapper->stmt = NULL;
+      GET_CLIENT(stmt_wrapper->client);
+      if(wrapper->closed != 1)
+      {
+        dpi_free_stmt(stmt_wrapper->stmt);
+        stmt_wrapper->stmt = NULL;
+      }
     }
     xfree(stmt_wrapper);
   }
