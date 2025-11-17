@@ -82,14 +82,10 @@ void decr_dm_stmt(dm_stmt_wrapper *stmt_wrapper) {
       stmt_wrapper->paramdesc = NULL;
     }
 
-    if (stmt_wrapper->stmt && stmt_wrapper->client != Qnil) 
+    if (stmt_wrapper->stmt) 
     {
-      GET_CLIENT(stmt_wrapper->client);
-      if(wrapper->closed != 1)
-      {
-        dpi_free_stmt(stmt_wrapper->stmt);
-        stmt_wrapper->stmt = NULL;
-      }
+      dpi_free_stmt(stmt_wrapper->stmt);
+      stmt_wrapper->stmt = NULL;
     }
     xfree(stmt_wrapper);
   }
@@ -457,7 +453,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer = xmalloc(8192);
           strncpy(bind_buffers[i].buffer, "", 8192);
           bind_buffers[i].buffer_length = 8192;
-          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
+          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
           if(!DSQL_SUCCEEDED(rt))
             rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
           break;

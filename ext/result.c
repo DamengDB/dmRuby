@@ -150,7 +150,7 @@ static void rb_dm_result_free_result(dm_result_wrapper * wrapper) {
    
     for(i = 0; i < wrapper->numberOfFields; i++)
     {
-      if(wrapper->col_desc[i].sql_type == DSQL_BLOB || wrapper->col_desc[i].sql_type == DSQL_CLOB)
+      if((wrapper->col_desc[i].sql_type == DSQL_BLOB || wrapper->col_desc[i].sql_type == DSQL_CLOB) && wrapper->client != Qnil && wrapper->client_wrapper->closed != 1)
         dpi_free_lob_locator(wrapper->lobs[i]);
       if(wrapper->result[i])
       {
