@@ -26,6 +26,7 @@ typedef struct {
   udint2 col_num;
   ParamDesc *paramdesc;
   int is_prepare;
+  dm_client_wrapper *client_wrapper;
 } dm_stmt_wrapper;
 
 void init_dm_statement(void);

@@ -29,8 +29,11 @@ static void rb_dm_stmt_free(void *ptr) {
 }
     
 static size_t rb_dm_stmt_memsize(const void * ptr) {
-  const dm_stmt_wrapper *stmt_wrapper = ptr;
-  return sizeof(*stmt_wrapper);
+  const dm_stmt_wrapper * w = ptr;
+  size_t memsize = sizeof(*w);
+  if (w->client_wrapper) {
+    memsize += sizeof(*w->client_wrapper);
+  }
 }
 
 #ifdef HAVE_RB_GC_MARK_MOVABLE
@@ -82,11 +85,17 @@ void decr_dm_stmt(dm_stmt_wrapper *stmt_wrapper) {
       stmt_wrapper->paramdesc = NULL;
     }
 
-    if (stmt_wrapper->stmt) 
+    if (stmt_wrapper->stmt && stmt_wrapper->client != Qnil) 
     {
-      dpi_free_stmt(stmt_wrapper->stmt);
+      if (stmt_wrapper->client_wrapper->closed != 1) {
+        dpi_free_stmt(stmt_wrapper->stmt);
+      }
       stmt_wrapper->stmt = NULL;
     }
+
+    if (stmt_wrapper->client != Qnil) 
+      decr_dm_client(stmt_wrapper->client_wrapper);
+  
     xfree(stmt_wrapper);
   }
 }
@@ -208,6 +217,8 @@ VALUE rb_dm_stmt_new(VALUE rb_client, VALUE sql) {
 #endif
   {
     stmt_wrapper->client = rb_client;
+    stmt_wrapper->client_wrapper = DATA_PTR(rb_client);
+    stmt_wrapper->client_wrapper->refcount++;
     stmt_wrapper->refcount = 1;
     stmt_wrapper->closed = 0;
     stmt_wrapper->stmt = NULL;
@@ -455,7 +466,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer_length = 8192;
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
         case T_FIXNUM:
         #if SIZEOF_INT < SIZEOF_LONG
@@ -464,16 +475,16 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer_length = sizeof(long long int);
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SBIGINT, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
         #else
           bind_buffers[i].buffer = xmalloc(sizeof(int));
           *(int*)(bind_buffers[i].buffer) = FIX2INT(argv[i]);
           bind_buffers[i].buffer_length = sizeof(int);
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SLONG, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           if(!DSQL_SUCCEEDED(rt))
-           rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+           rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
         #endif
-          break;
+           break;
         case T_BIGNUM:
           {
             sdint8 num;
@@ -490,7 +501,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
             }
           }
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
         case T_FLOAT:
           bind_buffers[i].buffer = xmalloc(sizeof(double));
@@ -498,7 +509,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer_length = sizeof(double);
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_DOUBLE, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
         case T_STRING:
           params_enc[i] = argv[i];
@@ -508,7 +519,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
             set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
             rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_BINARY, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
             if(!DSQL_SUCCEEDED(rt))
-              rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+              rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           }
           else
           {
@@ -516,7 +527,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
             set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
             rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
             if(!DSQL_SUCCEEDED(rt))
-              rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+              rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           }
           break;
         case T_TRUE:
@@ -525,7 +536,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer_length = sizeof(int);
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SLONG, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
         case T_FALSE:
           bind_buffers[i].buffer = xmalloc(sizeof(int));
@@ -533,7 +544,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           bind_buffers[i].buffer_length = sizeof(int);
           rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_SLONG, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           if(!DSQL_SUCCEEDED(rt))
-            rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+            rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
         default:
           // TODO: what Ruby type should support dm_TYPE_TIME
@@ -584,7 +595,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
             rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           }
           if(!DSQL_SUCCEEDED(rt))
-           rb_raise_dm_stmt_error(stmt_wrapper, stmt_wrapper->stmt, DSQL_HANDLE_STMT);
+           rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
       }
     }
