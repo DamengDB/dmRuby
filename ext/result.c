@@ -111,18 +111,18 @@ static void *nogvl_get_col_desc(void *ptr) {
                 (dpointer)&(wrapper->col_desc[iParam].length), 0, NULL);
       if(!DSQL_SUCCEEDED(rt))
         return (void*)Qfalse;
-      wrapper->result[iParam] = (char*)xmalloc(wrapper->col_desc[iParam].length+2);
+      wrapper->result[iParam] = (char*)xmalloc(wrapper->col_desc[iParam].length * 2 + 1);
       if(wrapper->col_desc[iParam].sql_type == DSQL_BINARY || wrapper->col_desc[iParam].sql_type == DSQL_VARBINARY)
       {
         rt = dpi_bind_col(wrapper->statement, (udint2)iParam + 1, DSQL_C_BINARY,
                               (dpointer)wrapper->result[iParam],
-                              wrapper->col_desc[iParam].length + 1, &wrapper->length[iParam]);
+                              wrapper->col_desc[iParam].length * 2 + 1, &wrapper->length[iParam]);
       }
       else
       {
         rt = dpi_bind_col(wrapper->statement, (udint2)iParam + 1, DSQL_C_NCHAR,
                                 (dpointer)wrapper->result[iParam],
-                                wrapper->col_desc[iParam].length + 1, &wrapper->length[iParam]);
+                                wrapper->col_desc[iParam].length * 2 + 1, &wrapper->length[iParam]);
       }                  
     }
   }
@@ -550,7 +550,7 @@ static VALUE rb_dm_result_fetch_row(VALUE self,const result_each_args *args)
 
   for (i = 0; i < wrapper->numberOfFields; i++) {
     VALUE field = rb_dm_result_fetch_field(self, i, args->symbolizeKeys);
-    if (row[i] && fieldLengths[i]>0) {
+    if (row[i] && fieldLengths[i]>=0) {
       VALUE val = Qnil;
       sdint2 type = wrapper->col_desc[i].sql_type;
 

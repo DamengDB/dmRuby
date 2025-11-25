@@ -34,6 +34,7 @@ static size_t rb_dm_stmt_memsize(const void * ptr) {
   if (w->client_wrapper) {
     memsize += sizeof(*w->client_wrapper);
   }
+  return memsize;
 }
 
 #ifdef HAVE_RB_GC_MARK_MOVABLE
@@ -427,6 +428,7 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
   rb_encoding *conn_enc;
   DPIRETURN rt;
   rb_encoding *enc;
+  slength indicator;
 
   GET_STATEMENT(self);
   GET_CLIENT(stmt_wrapper->client);
@@ -461,10 +463,8 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
 
       switch (TYPE(argv[i])) {
         case T_NIL:
-          bind_buffers[i].buffer = xmalloc(8192);
-          strncpy(bind_buffers[i].buffer, "", 8192);
-          bind_buffers[i].buffer_length = 8192;
-          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, NULL);
+          indicator = DSQL_NULL_DATA;
+          rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, NULL, 0, &indicator);
           if(!DSQL_SUCCEEDED(rt))
             rb_raise(cdmError, "failed to bind param %d , code = %d", i, rt, stmt_wrapper, stmt_wrapper->stmt, *(udint8*)stmt_wrapper->stmt);
           break;
@@ -548,44 +548,13 @@ static VALUE rb_dm_stmt_execute(int argc, VALUE *argv, VALUE self) {
           break;
         default:
           // TODO: what Ruby type should support dm_TYPE_TIME
-          if (CLASS_OF(argv[i]) == rb_cTime || CLASS_OF(argv[i]) == cDateTime) {
-            dpi_timestamp_t t;
-            VALUE rb_time = argv[i];
+          if (CLASS_OF(argv[i]) == rb_cTime || CLASS_OF(argv[i]) == cDateTime || CLASS_OF(argv[i]) == cDate) {
+            VALUE rb_val_as_string = rb_funcall(argv[i], intern_to_s, 0);
 
-            bind_buffers[i].buffer = xmalloc(sizeof(dpi_timestamp_t));
-
-            memset(&t, 0, sizeof(dpi_timestamp_t));
-
-            if (CLASS_OF(argv[i]) == rb_cTime) {
-              t.fraction = FIX2INT(rb_funcall(rb_time, intern_usec, 0));
-            } else if (CLASS_OF(argv[i]) == cDateTime) {
-              t.fraction = NUM2DBL(rb_funcall(rb_time, intern_sec_fraction, 0)) * 1000000;
-            }
-
-            t.second = FIX2INT(rb_funcall(rb_time, intern_sec, 0));
-            t.minute = FIX2INT(rb_funcall(rb_time, intern_min, 0));
-            t.hour = FIX2INT(rb_funcall(rb_time, intern_hour, 0));
-            t.day = FIX2INT(rb_funcall(rb_time, intern_day, 0));
-            t.month = FIX2INT(rb_funcall(rb_time, intern_month, 0));
-            t.year = FIX2INT(rb_funcall(rb_time, intern_year, 0));
-
-            *(dpi_timestamp_t*)(bind_buffers[i].buffer) = t;
-            bind_buffers[i].buffer_length = sizeof(dpi_timestamp_t);
-            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_TIMESTAMP, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
-          } else if (CLASS_OF(argv[i]) == cDate) {
-            dpi_date_t t;
-            VALUE rb_time = argv[i];
-
-            bind_buffers[i].buffer = xmalloc(sizeof(dpi_date_t));
-
-            memset(&t, 0, sizeof(dpi_date_t));
-            t.day = FIX2INT(rb_funcall(rb_time, intern_day, 0));
-            t.month = FIX2INT(rb_funcall(rb_time, intern_month, 0));
-            t.year = FIX2INT(rb_funcall(rb_time, intern_year, 0));
-
-            *(dpi_date_t*)(bind_buffers[i].buffer) = t;
-            bind_buffers[i].buffer_length = sizeof(dpi_date_t);
-            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_DATE, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
+            params_enc[i] = rb_val_as_string;
+            params_enc[i] = rb_str_export_to_enc(params_enc[i], conn_enc);
+            set_buffer_for_string(&bind_buffers[i], &length_buffers[i], params_enc[i]);
+            rt = dpi_bind_param(stmt_wrapper->stmt, i + 1, DSQL_PARAM_INPUT, DSQL_C_NCHAR, stmt_wrapper->paramdesc[i].sql_type, stmt_wrapper->paramdesc[i].prec, stmt_wrapper->paramdesc[i].scale, bind_buffers[i].buffer, bind_buffers[i].buffer_length, &(bind_buffers[i].buffer_length));
           } else if (CLASS_OF(argv[i]) == cBigDecimal) {
             VALUE rb_val_as_string = rb_funcall(argv[i], intern_to_s, 0);
 
