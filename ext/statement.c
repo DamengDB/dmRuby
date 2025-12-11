@@ -324,7 +324,7 @@ static void *nogvl_stmt_execute(void *ptr) {
     if(nStmtType == DSQL_DIAG_FUNC_CODE_INSERT ||
      nStmtType == DSQL_DIAG_FUNC_CODE_UPDATE ||
      nStmtType == DSQL_DIAG_FUNC_CODE_DELETE ||
-     nStmtType == DSQL_DIAG_FUNC_CODE_CALL)
+     nStmtType == DSQL_DIAG_FUNC_CODE_MERGE)
   {
     rt = dpi_row_count(stmt_wrapper->stmt,&stmt_wrapper->affected_rows);
      if (!DSQL_SUCCEEDED(rt)) {

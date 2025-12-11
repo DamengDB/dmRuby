@@ -342,7 +342,7 @@ static void *nogvl_send_query(void *ptr) {
   if(nStmtType == DSQL_DIAG_FUNC_CODE_INSERT ||
      nStmtType == DSQL_DIAG_FUNC_CODE_UPDATE ||
      nStmtType == DSQL_DIAG_FUNC_CODE_DELETE ||
-     nStmtType == DSQL_DIAG_FUNC_CODE_CALL)
+     nStmtType == DSQL_DIAG_FUNC_CODE_MERGE)
   {
     rt = dpi_row_count(hstmt,&args->wrapper->affected_rows);
   }

@@ -8,6 +8,10 @@
 
 ## Change Logs
 
+- dmRuby v1.0.7
+
+  1、修改merge语句影响行数错误的问题。
+
 - dmRuby v1.0.6
 
   1、修改读取中文数据缺失的问题；
