@@ -8,6 +8,10 @@
 
 ## Change Logs
 
+- dmRuby v1.0.8
+
+  1、修改查询选项中密码明文显示的问题。
+
 - dmRuby v1.0.7
 
   1、修改merge语句影响行数错误的问题。

@@ -20,6 +20,8 @@ module Dm
       @query_options.merge! opts
      
       # force the encoding to utf8
+      @query_options.delete(:password)
+      @query_options.delete(:pass)
 
       user     = opts[:username] || opts[:user]
       pass     = opts[:password] || opts[:pass]
